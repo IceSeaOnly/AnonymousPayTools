@@ -58,7 +58,7 @@ export default class TabTable extends Component {
 
   transLog = (rec)=>{
     var address = rec.md5;
-    window.location.href="/#/transLog?md5="+address;
+    window.location.href="#/transLog?md5="+address;
   }
 
   getQueryString(name){

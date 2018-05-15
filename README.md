@@ -1,22 +1,150 @@
-# ice-scaffold-lite
+# 匿名支付系统
+![](http://cdn.binghai.site/o_1cdgrov30s35s9n1k8q1tei1g65a.png)
+### 隐藏您的真实收款地址，防止被算法追踪!
+![](http://cdn.binghai.site/o_1cdgrm9632ue1stv165q15bv199sa.png)
+### 智能合约
+```
+'use strict';
 
-> 使用文档
+var Account = function (text) {
+  if (text) {
+    var o = JSON.parse(text);
+    this.idx = o.idx;
+    this.address = o.address;
+    this.md5 = o.md5;
+    this.nickName = o.nickName;
+  }
+};
 
-使用:
+Account.prototype = {
+  toString: function () {
+    return JSON.stringify(this);
+  }
+};
 
-* 启动调试服务: `npm start`
-* 构建 dist: `npm run build`
+var TransLog = function (text) {
+  if (text) {
+    var o = JSON.parse(text);
+    this.idx = o.idx;
+    this.from = o.from;
+    this.to = o.to;
+    this.payMuch = new BigNumber(o.payMuch);
+    this.tx = o.tx;
+    this.payTime = o.payTime;
+  }
+};
 
-目录结构:
+TransLog.prototype = {
+  toString: function () {
+    return JSON.stringify(this);
+  }
+};
 
-* react-router @4.x 默认采用 hashHistory 的单页应用
-* 入口文件: `src/index.js`
-* 导航配置: `src/menuConfig.js`
-* 路由配置: `src/routerConfig.js`
-* 路由入口: `src/router.jsx`
-* 布局文件: `src/layouts`
-* 通用组件: `src/components`
-* 页面文件: `src/pages`
+var Anonymous = function(){
+  LocalContractStorage.defineProperty(this, "transLogSize");
+	LocalContractStorage.defineProperty(this, "accountSize");
+	LocalContractStorage.defineMapProperty(this, "accounts", {
+    parse: function (text) {
+      return new Account(text);
+    },
+    stringify: function (o) {
+      return o.toString();
+    }
+  });
+    LocalContractStorage.defineMapProperty(this, "logs", {
+    parse: function (text) {
+      return new TransLog(text);
+    },
+    stringify: function (o) {
+      return o.toString();
+    }
+  });
+}
 
-效果图:
-![screenshot](https://img.alicdn.com/tfs/TB1IM1JmuuSBuNjy1XcXXcYjFXa-1920-1080.png)
+Anonymous.prototype = {
+  init: function () {
+    this.transLogSize = 0;
+  	this.accountSize = 0;
+  },
+
+  listLog:function(md5){
+    var list = [];
+  	for(var i = 0;i < this.transLogSize;i++){
+  		var log = this.logs.get(i);
+      if(log.to == md5){
+        list.push(log);
+      }
+  	}
+  	return list;
+  },
+
+  occupy:function(md5,address,nickName){
+  	var ac = this._getAccount(md5);
+    if(ac != null){
+      throw new Error("this account has been registed!");
+    }
+
+    var item = new Account();
+    item.idx = this.accountSize;
+    item.md5 = md5;
+    item.address = address;
+    item.nickName = nickName;
+
+    this.accounts.put(item.idx,item);
+    this.accountSize += 1;
+
+    return "success";
+  },
+
+  trans:function(md5){
+    var ac = this._getAccount(md5);
+    if(ac == null){
+      throw new Error("account not exist!");
+    }
+
+    var much = Blockchain.transaction.value;
+    var ts = Blockchain.transaction.timestamp;
+    var tx = Blockchain.transaction.hash;
+
+    Blockchain.transfer(ac.address, much);
+
+    var from = Blockchain.transaction.from;
+    var log = new TransLog();
+    log.idx = this.transLogSize;
+    log.from = from;
+    log.to  = md5;
+    log.payMuch = new BigNumber(much);
+    log.payTime = ts;
+    log.tx = tx;
+
+    this.logs.put(log.idx,log);
+    this.transLogSize += 1;
+    return "success";
+  },
+
+  _getAccount:function(md5){
+    for(var i = 0; i < this.accountSize ;i++){
+      var ac = this.accounts.get(i);
+      if(ac.md5 == md5) return ac;
+    }
+    return null;
+  },
+
+  listAccout:function(){
+    var list = [];
+    for(var i = 0; i < this.accountSize ; i++){
+      var item = new Account();
+      var rc =this.accounts.get(i);
+      item.md5 = rc.md5;
+      item.nickName = rc.nickName;
+
+      list.push(item);
+    }
+    return list;
+  },
+
+ }
+
+ module.exports = Anonymous;
+
+```
